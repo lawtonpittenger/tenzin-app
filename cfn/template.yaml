@@ -48,7 +48,7 @@ Resources:
     Properties:
       Source:
         Type: GITHUB
-        Location: https://github.com/lawtonpittenger/a2tp-sample.git
+        Location: https://github.com/lawtonpittenger/tenzin-app.git
         BuildSpec: !Sub |
           version: 0.2
           phases:
