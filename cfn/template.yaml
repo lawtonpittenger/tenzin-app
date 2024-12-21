@@ -1,0 +1,152 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Automation for building a Lambda layer
+
+Resources:
+  
+  # Log Policy for Lambdas
+  LogsPolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      Path: /
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Action:
+              - 'logs:CreateLogGroup'
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+            Resource: '*'
+
+   # For building Lambda layer
+  BuildRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service:
+                - 'codebuild.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - !GetAtt LogsPolicy.PolicyArn
+      Policies:
+        - PolicyName: 'LambdaLayerPolicy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - 'lambda:PublishLayerVersion'
+                Resource: '*'
+   # For building Lambda layer
+  BuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Source:
+        Type: GITHUB
+        Location: https://github.com/lawtonpittenger/a2tp-sample.git
+        BuildSpec: !Sub |
+          version: 0.2
+          phases:
+            pre_build:
+              commands:
+                - pip3 install awscli --upgrade --user
+                - pwd
+                - ls
+            build:
+              commands:
+                - chmod +x ./buildlayer.sh 
+                - ./buildlayer.sh mp3-layer python3.11 requirements.txt
+                - pwd
+                - ls
+            post_build:
+              commands:
+                - pwd
+                - ls
+      Environment:
+        Type: LINUX_CONTAINER
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        ComputeType: BUILD_GENERAL1_SMALL
+      ServiceRole: !GetAtt BuildRole.Arn
+      Artifacts:
+        Type: NO_ARTIFACTS
+
+### Custom Resources ###
+
+  # For building Lambda layer
+  BuildCustomResourceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: "/"
+      ManagedPolicyArns:
+        - !GetAtt LogsPolicy.PolicyArn
+      Policies:
+        - PolicyName: BuildPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                Resource:
+                  - '*'
+   # For building Lambda layer
+  BuildCustomResourceFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt BuildCustomResourceRole.Arn
+      Timeout: 900
+      Runtime: python3.12
+      Code:
+        ZipFile: !Sub |
+          import boto3
+          from time import sleep
+          import cfnresponse
+
+          def handler(event, context):
+
+            request_type = event['RequestType']
+            print(request_type)
+
+            if request_type in ['Create', 'Update']:
+              client = boto3.client("codebuild")
+
+              build_id = client.start_build(
+                projectName=event['ResourceProperties']['PROJECT']
+              )['build']['id']
+              status = 'STARTING'
+
+              while status != 'SUCCEEDED':
+                if status in ['FAILED', 'FAULT', 'TIMED_OUT', 'STOPPED']:
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {})
+                  return
+                sleep(15)
+                status = client.batch_get_builds(ids=[build_id])['builds'][0]['buildStatus']
+                print(status)
+
+            elif request_type == 'Delete':
+              cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+
+            cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+   # For building Lambda layer
+  BuildCustomResource:
+    Type: Custom::BuildCode
+    Properties:
+      ServiceToken: !GetAtt BuildCustomResourceFunction.Arn
+      PROJECT: !Ref BuildProject
+
