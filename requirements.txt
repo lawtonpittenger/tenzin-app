@@ -2,4 +2,3 @@ boto3
 mutagen
 pillow
 ffmpeg-python
-mutagen
