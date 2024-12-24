@@ -1,0 +1,5 @@
+File Types to Support:
+- mp3 (already done)
+- m4a
+- mp4
+- mov
