@@ -82,30 +82,7 @@ Resources:
                 Resource:
                   - !Sub arn:${AWS::Partition}:s3:::${S3OutputBucketName}
                   - !Sub arn:${AWS::Partition}:s3:::${S3OutputBucketName}/${S3OutputBucketPrefix}/*
-        - PolicyName: AllowSQSRead
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - sqs:GetQueueUrl
-                  - sqs:GetQueueAttributes
-                  - sqs:ReceiveMessage
-                  - sqs:DeleteMessage
-                Resource:
-                  - !GetAtt MediaInfoObjectQueue.Arn
-        - PolicyName: AllowDeadLetterSQSWrite
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - sqs:SendMessage
-                Condition:
-                  Bool:
-                    aws:SecureTransport: True
-                Resource:
-                  - !GetAtt BatchMediaInfoConsumerDeadLetterQueue.Arn
+
 
   BatchMediaInfoConsumer:
     Type: AWS::Serverless::Function

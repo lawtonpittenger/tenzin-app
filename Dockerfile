@@ -11,6 +11,7 @@ FROM amazonlinux
 WORKDIR /
 RUN yum update -y
 RUN yum install gcc gcc-c++ openssl-devel bzip2-devel libffi-devel wget tar unzip gzip zip make -y
+RUN yum install libjpeg-devel zlib-devel libtiff-devel freetype-devel lcms2-devel libwebp-devel tcl-devel tk-devel -y
 
 # Install Python 3.9
 WORKDIR /
@@ -23,9 +24,9 @@ RUN make install
 
 # Install Python packages
 RUN mkdir /packages
-RUN echo "pymediainfo" >> /packages/requirements.txt
-RUN mkdir -p /packages/pymediainfo/python/lib/python3.9/site-packages
-RUN pip3.9 install -r /packages/requirements.txt -t /packages/pymediainfo/python/lib/python3.9/site-packages
+COPY requirements.txt /packages/
+RUN pip3.9 install --upgrade pip
+RUN pip3.9 install -r /packages/requirements.txt -t /packages/python/lib/python3.9/site-packages
 
 # Download MediaInfo
 WORKDIR /root
@@ -34,9 +35,7 @@ RUN unzip -j MediaInfo_DLL_22.09_Lambda_x86_64.zip LICENSE
 RUN unzip -j MediaInfo_DLL_22.09_Lambda_x86_64.zip lib/libmediainfo.so.0.0.0
 
 # Create zip file for Lambda Layer deployment
-RUN cp /root/LICENSE /packages/pymediainfo/LICENSE
-RUN cp /root/libmediainfo.so.0.0.0 /packages/pymediainfo/libmediainfo.so
-WORKDIR /packages/pymediainfo/
+RUN cp /root/LICENSE /packages/LICENSE
+RUN cp /root/libmediainfo.so.0.0.0 /packages/libmediainfo.so
+WORKDIR /packages
 RUN zip -r9 /packages/pymediainfo-layer.zip .
-WORKDIR /packages/
-RUN rm -rf /packages/pymediainfo/
