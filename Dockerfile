@@ -17,6 +17,7 @@ WORKDIR /
 RUN wget https://www.python.org/ftp/python/3.9.15/Python-3.9.15.tgz
 RUN tar -xzf Python-3.9.15.tgz
 WORKDIR /Python-3.9.15
+RUN yum install -y zlib-devel
 RUN ./configure --enable-optimizations
 RUN make install
 
